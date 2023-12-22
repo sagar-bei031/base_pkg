@@ -19,13 +19,14 @@ setup(
     zip_safe=True,
     maintainer='sagar',
     maintainer_email='078bei031.sagar@pcampus.edu.np',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Base Link to ROS',
+    license='null',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'filter_node = base_pkg.filter_node:main',
             'esp_node = base_pkg.esp_node:main',
+            'simulation_node = base_pkg.simulation_node:main',
         ],
     },
 )

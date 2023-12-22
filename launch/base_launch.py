@@ -10,7 +10,12 @@ def generate_launch_description():
         ),
         Node(
             package='base_pkg',
-            executable='turtlesim_node',
+            executable='filter_node',
             name='filter'
+        ),
+        Node(
+            package='base_pkg',
+            executable='simulation_node',
+            name='simulation'
         ),
     ])

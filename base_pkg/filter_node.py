@@ -11,7 +11,7 @@ class FilterNode(Node):
     def __init__(self):
         super().__init__('filter_node')
         self.subscription = self.create_subscription(Float32MultiArray,
-                                                      '/raw_robot_state',
+                                                      'raw_robot_state',
                                                       self.listener_callback,
                                                       10)
         self.publisher_ = self.create_publisher(Float32MultiArray, 

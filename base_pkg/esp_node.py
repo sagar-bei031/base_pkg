@@ -51,6 +51,8 @@ class ESPNode(Node):
 
         except Exception as e:
             self.get_logger().info(f"Exception occurred: {e}")
+        except KeyboardInterrupt:
+            comm_socket.close()
 
         finally:
             if comm_socket:
