@@ -20,19 +20,28 @@ class SerialNode(Node):
         self.serial_port = serial.Serial('//dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0', 115200)
         self.receive_thread = threading.Thread(target=self.serial_receive)
         self.receive_thread.daemon = True  # Set the thread as daemon to terminate it when the main program ends
-        self.start_byte = struct.pack('B', START_BYTE)
         self.receive_thread.start()
 
     def listener_callback(self, msg):
-        data = struct.pack("fff", msg.data[0], msg.data[1], msg.data[2])
+        data = [
+            bytes(struct.pack("B", START_BYTE)),
+            bytes(struct.pack("f", msg.data[0])),
+            bytes(struct.pack("f", msg.data[1])),
+            bytes(struct.pack("f", msg.data[2]))
+        ]
         # print(msg.data)
-        hash_value = struct.pack('B', self.calc_checksum(data))
+        data = b''.join(data)
+        hash_value = self.calculate_crc(data)
+        data = [data,
+                bytes(struct.pack('B', hash)) 
+        ]
+        data= b''.join(data)
 
-        self.serial_port.write(self.start_byte)
+        # self.serial_port.write(self.start_byte)
         # print(struct.pack('B', START_BYTE))
         self.serial_port.write(data)
         # print(data)
-        self.serial_port.write(hash_value)
+        # self.serial_port.write(hash_value)
         # print(struct.pack('B', hash_value))
         self.serial_port.reset_output_buffer()
 
@@ -58,7 +67,8 @@ class SerialNode(Node):
                     self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
                     # print(msg.data)
 
-                
+    
+    # To check crc while recieving data
     def calc_crc(self, data=[]*23):
         hash_func=crc8.crc8()
         hash_func.update(data[0:-1])
@@ -69,6 +79,12 @@ class SerialNode(Node):
         for i in range(0,len(data)):
             checksum = checksum ^ data[i]
         return checksum
+    
+    # To compute crc while transmitting data
+    def calculate_crc(self, data=[]):
+        hash_func=crc8()
+        hash_func.update(data[1:])
+        return hash_func.digest()[0]
                         
                         
 
