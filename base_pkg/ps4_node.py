@@ -10,6 +10,8 @@ isEmergencyBrake = False
 def joy_callback(msg):
     global isEmergencyBrake
 
+    # print(msg.axes)
+
     if (msg.buttons[4] == 1):
         speedFactor = 0.2
     else:
@@ -35,17 +37,16 @@ def joy_callback(msg):
     if (isEmergencyBrake):
         vx = vy = w = 0.0
     
-    print(msg.buttons)
+    # print(msg.buttons)
     set_speed(vx, vy, w)
 
 
 def set_speed(vx, vy, w):
     twist_array = Float32MultiArray()
     twist_array.data = [vx, vy, w]
-    print(twist_array.data)
-
-    # Publish Float32MultiArray message
+    print(twist_array.data[0], twist_array.data[1], twist_array.data[2])
     pub.publish(twist_array)
+
 
 def map_value(value, min_value, max_value, new_min, new_max):
     mapped_value = ((value - min_value) * (new_max - new_min)) / (max_value - min_value) + new_min

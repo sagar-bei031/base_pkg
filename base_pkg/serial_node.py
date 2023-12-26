@@ -17,21 +17,22 @@ class SerialNode(Node):
         self.publisher_ = self.create_publisher(Float32MultiArray, '/raw_robot_state', 10)
         self.subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.listener_callback, 10)
         self.get_logger().info('Serial node is running...')
-        self.serial_port = serial.Serial('/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0', 115200)
+        self.serial_port = serial.Serial('//dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0', 115200)
         self.receive_thread = threading.Thread(target=self.serial_receive)
         self.receive_thread.daemon = True  # Set the thread as daemon to terminate it when the main program ends
+        self.start_byte = struct.pack('B', START_BYTE)
         self.receive_thread.start()
 
     def listener_callback(self, msg):
         data = struct.pack("fff", msg.data[0], msg.data[1], msg.data[2])
         # print(msg.data)
-        hash_value = self.calc_crc(data)
+        hash_value = struct.pack('B', self.calc_checksum(data))
 
-        self.serial_port.write(struct.pack('B', START_BYTE))
+        self.serial_port.write(self.start_byte)
         # print(struct.pack('B', START_BYTE))
         self.serial_port.write(data)
         # print(data)
-        self.serial_port.write(struct.pack('B', hash_value))
+        self.serial_port.write(hash_value)
         # print(struct.pack('B', hash_value))
         self.serial_port.reset_output_buffer()
 
@@ -64,6 +65,7 @@ class SerialNode(Node):
         return hash_func.digest()[0]
     
     def calc_checksum(self, data=[]):
+        checksum = 0
         for i in range(0,len(data)):
             checksum = checksum ^ data[i]
         return checksum
