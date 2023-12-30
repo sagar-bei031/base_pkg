@@ -3,14 +3,14 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 
-HOST = '10.42.0.1'
-PORT = 8083
+HOST = '127.0.0.1'
+PORT = 5555
 
 class SimulationNode(Node):
     def __init__(self):
         super().__init__('filter_node')
         self.subscription = self.create_subscription(Float32MultiArray,
-                                                      'filtered_odometry',
+                                                      '/raw_robot_state',
                                                       self.listener_callback,
                                                       10)
         self.get_logger().info('simulation_node is running..')
@@ -25,6 +25,7 @@ class SimulationNode(Node):
             "y": float(y),
             "theta": float(theta)
         }
+        print(x,y,theta)
         try:
             with open('gamefield/data/positionR1.json', 'w') as f:
                 json.dump(data_dict, f, indent=4)

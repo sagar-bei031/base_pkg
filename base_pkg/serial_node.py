@@ -9,7 +9,7 @@ import crc8
 
 START_BYTE = 0xA5
 CMD_VEL_ID = 0x00
-PID_CFG_ID = 0xFF
+PID_CFG_ID = 0x01
 
 class SerialNode(Node):
     def __init__(self):
@@ -23,6 +23,7 @@ class SerialNode(Node):
 
     def pid_callback(self, msg):
         data = [bytes(struct.pack("B", START_BYTE)),
+                bytes(struct.pack("B", 49))
                 bytes(struct.pack("B", PID_CFG_ID)),
                 bytes(struct.pack("f", msg.data[0])),
                 bytes(struct.pack("f", msg.data[1])),
@@ -37,7 +38,7 @@ class SerialNode(Node):
                 bytes(struct.pack("f", msg.data[10])),
                 bytes(struct.pack("f", msg.data[11]))]
         data = b''.join(data)
-        hash_value = self.calculate_crc(data)
+        hash_value = self.calculate_crc(data[2:-1])
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
@@ -78,8 +79,7 @@ class SerialNode(Node):
                 self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
                 # print(msg.data)
 
-    # To check crc while recieving data
-    def calc_crc(self, data=[]*23):
+    def calc_crc(self, data=[]):
         hash_func = crc8.crc8()
         hash_func.update(data[0:-1])
         return hash_func.digest()[0]
@@ -89,12 +89,6 @@ class SerialNode(Node):
         for i in range(0, len(data)):
             checksum = checksum ^ data[i]
         return checksum
-
-    # To compute crc while transmitting data
-    def calculate_crc(self, data=[]):
-        hash_func = crc8.crc8()
-        hash_func.update(data[1:])
-        return hash_func.digest()[0]
 
 def main(args=None):
     rclpy.init(args=args)
