@@ -55,7 +55,7 @@ class FilterNode(Node):
         Q[3,0] = Q[4,1] = Q[5,2] = q[1,0]
         return Q
 
-    def odom_callback_callback(self, state_msg):
+    def odom_callback(self, state_msg):
         dt = time.time() - self.last_predict_time
         # print('dt::', dt)
         u = np.array([[state_msg.data[3]],

@@ -8,20 +8,45 @@ from std_msgs.msg import Float32MultiArray
 import crc8
 
 START_BYTE = 0xA5
-
+CMD_VEL_ID = 0x00
+PID_CFG_ID = 0xFF
 
 class SerialNode(Node):
     def __init__(self):
         super().__init__('serial_node')
-        self.publisher_ = self.create_publisher(Float32MultiArray, '/raw_encoder_count', 10)
-        self.subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.joy_callback, 10)
+        self.raw_state_publisher = self.create_publisher(Float32MultiArray, '/raw_robot_state', 10)
+        self.cmd_subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.pid_callback, 10)
+        self.pid_subscription = self.create_subscription(Float32MultiArray, '/pid_config', self.joy_callback, 10)
         self.get_logger().info('Serial node is running...')
         self.serial_port = serial.Serial('/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0', 115200)
         self.timer = self.create_timer(0.005, self.odom_serial_receive)
 
-    def joy_callback(self, msg):
-        print(msg.data)
+    def pid_callback(self, msg):
         data = [bytes(struct.pack("B", START_BYTE)),
+                bytes(struct.pack("B", PID_CFG_ID)),
+                bytes(struct.pack("f", msg.data[0])),
+                bytes(struct.pack("f", msg.data[1])),
+                bytes(struct.pack("f", msg.data[2])),
+                bytes(struct.pack("f", msg.data[3])),
+                bytes(struct.pack("f", msg.data[4])),
+                bytes(struct.pack("f", msg.data[5])),
+                bytes(struct.pack("f", msg.data[6])),
+                bytes(struct.pack("f", msg.data[7])),
+                bytes(struct.pack("f", msg.data[8])),
+                bytes(struct.pack("f", msg.data[9])),
+                bytes(struct.pack("f", msg.data[10])),
+                bytes(struct.pack("f", msg.data[11]))]
+        data = b''.join(data)
+        hash_value = self.calculate_crc(data)
+        data = [data, bytes(struct.pack('B', hash_value))]
+        data = b''.join(data)
+        self.serial_port.write(data)
+        self.serial_port.reset_output_buffer()
+
+    def joy_callback(self, msg):
+        # print(msg.data)
+        data = [bytes(struct.pack("B", START_BYTE)),
+                bytes(struct.pack("B", CMD_VEL_ID)),
                 bytes(struct.pack("f", msg.data[0])),
                 bytes(struct.pack("f", msg.data[1])),
                 bytes(struct.pack("f", msg.data[2]))]
@@ -49,8 +74,8 @@ class SerialNode(Node):
                 # print("hash matched")
                 msg = Float32MultiArray()
                 msg.data = struct.unpack("ffffff", data_str[0:24])
-                self.publisher_.publish(msg)
-                # self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
+                self.raw_state_publisher.publish(msg)
+                self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
                 # print(msg.data)
 
     # To check crc while recieving data
