@@ -23,7 +23,7 @@ class UKFNode(Node):
         and 0≤α≤1 is an appropriate choice for α, 
         where a larger value for α spreads the sigma points further from the mean.
     '''
-
+    
     def __init__(self):
         super().__init__('ukf_node')
         self.subscription = self.create_subscription(Float32MultiArray,

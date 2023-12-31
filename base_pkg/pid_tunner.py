@@ -34,7 +34,6 @@ class MotorSliderWidget(QWidget):
         self.ki_precision = ki_precision
         self.kd_precision = kd_precision
         self.init_ui()
-        self.pid_node = PidNode()
 
     def init_ui(self):
         layout = QHBoxLayout()
@@ -115,6 +114,7 @@ class MainWindow(QWidget):
         self.ki_precision = KI_PRECISION
         self.kd_precision = KD_PRECISION
         self.init_ui()
+        self.pid_node = PidNode()
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -155,7 +155,7 @@ class MainWindow(QWidget):
         layout.addWidget(send_button)
 
         self.setLayout(layout)
-        self.setWindowTitle('Motor Control GUI')
+        self.setWindowTitle('Motor Pid Tunner')
 
     def generate_array(self):
         kp_values = []
@@ -167,6 +167,7 @@ class MainWindow(QWidget):
             kd_values.append(motor.kd)
 
         np_array = np.array([kp_values, ki_values, kd_values])
+        np_array = np_array.flatten().tolist() 
         self.text_area.clear()
         self.text_area.insertPlainText(f"Numpy Array:\n{np_array}\n\n")
 
@@ -195,9 +196,9 @@ class MainWindow(QWidget):
                 motor.kp = values['kp']
                 motor.ki = values['ki']
                 motor.kd = values['kd']
-                motor.set_slider_value('kp', values['kp'])
-                motor.set_slider_value('ki', values['ki'])
-                motor.set_slider_value('kd', values['kd'])
+                motor.set_slider_value('kp', values['kp']*self.kp_precision)
+                motor.set_slider_value('ki', values['ki']*self.ki_precision)
+                motor.set_slider_value('kd', values['kd']*self.kd_precision)
             self.text_area.insertPlainText(f"Array loaded from {file_name}\n")
 
     def send_to_ros(self):
@@ -210,13 +211,15 @@ class MainWindow(QWidget):
             kd_values.append(motor.kd)
 
         np_array = np.array([kp_values, ki_values, kd_values])
+        np_array = np_array.flatten().tolist()
         msg = Float32MultiArray()
         msg.data = np_array
-        self.pid_node.publish(msg)
+        self.pid_node.pid_publisher.publish(msg)
         self.text_area.insertPlainText(f"Sent array to ROS:\n{np_array}\n")
 
 
 def main():
+    rclpy.init()
     app = QApplication(sys.argv)
     main_window = MainWindow()
     main_window.show()

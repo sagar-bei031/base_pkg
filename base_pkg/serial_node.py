@@ -11,19 +11,23 @@ START_BYTE = 0xA5
 CMD_VEL_ID = 0x00
 PID_CFG_ID = 0x01
 
+RED_TTL = '/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0'
+BLACK_TTL = '/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0'
+
 class SerialNode(Node):
     def __init__(self):
         super().__init__('serial_node')
         self.raw_state_publisher = self.create_publisher(Float32MultiArray, '/raw_robot_state', 10)
-        self.cmd_subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.pid_callback, 10)
-        self.pid_subscription = self.create_subscription(Float32MultiArray, '/pid_config', self.joy_callback, 10)
+        self.cmd_subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.joy_callback, 10)
+        self.pid_subscription = self.create_subscription(Float32MultiArray, '/pid_config', self.pid_callback, 10)
         self.get_logger().info('Serial node is running...')
-        self.serial_port = serial.Serial('/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0', 115200)
+        self.serial_port = serial.Serial(RED_TTL, 115200)
         self.timer = self.create_timer(0.005, self.odom_serial_receive)
 
     def pid_callback(self, msg):
+        print("pid config sent")
         data = [bytes(struct.pack("B", START_BYTE)),
-                bytes(struct.pack("B", 49))
+                bytes(struct.pack("B", 49)),
                 bytes(struct.pack("B", PID_CFG_ID)),
                 bytes(struct.pack("f", msg.data[0])),
                 bytes(struct.pack("f", msg.data[1])),
@@ -38,21 +42,23 @@ class SerialNode(Node):
                 bytes(struct.pack("f", msg.data[10])),
                 bytes(struct.pack("f", msg.data[11]))]
         data = b''.join(data)
-        hash_value = self.calculate_crc(data[2:-1])
+        hash_value = self.calc_crc(data[2:])
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
         self.serial_port.reset_output_buffer()
+        print(data)
 
     def joy_callback(self, msg):
         # print(msg.data)
         data = [bytes(struct.pack("B", START_BYTE)),
+                bytes(struct.pack("B", 13)),
                 bytes(struct.pack("B", CMD_VEL_ID)),
                 bytes(struct.pack("f", msg.data[0])),
                 bytes(struct.pack("f", msg.data[1])),
                 bytes(struct.pack("f", msg.data[2]))]
         data = b''.join(data)
-        hash_value = self.calculate_crc(data)
+        hash_value = self.calc_crc(data[2:])
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
