@@ -25,7 +25,7 @@ class SerialNode(Node):
         self.timer = self.create_timer(0.005, self.odom_serial_receive)
 
     def pid_callback(self, msg):
-        print("pid config sent")
+        print("pid config sent", msg.data)
         data = [bytes(struct.pack("B", START_BYTE)),
                 bytes(struct.pack("B", 49)),
                 bytes(struct.pack("B", PID_CFG_ID)),
@@ -42,7 +42,7 @@ class SerialNode(Node):
                 bytes(struct.pack("f", msg.data[10])),
                 bytes(struct.pack("f", msg.data[11]))]
         data = b''.join(data)
-        hash_value = self.tx_calc_crc(data[2:])
+        hash_value = self.tx_calc_crc(data)
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
@@ -58,12 +58,12 @@ class SerialNode(Node):
                 bytes(struct.pack("f", msg.data[1])),
                 bytes(struct.pack("f", msg.data[2]))]
         data = b''.join(data)
-        hash_value = self.tx_calc_crc(data[2:])
+        hash_value = self.tx_calc_crc(data)
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
         self.serial_port.reset_output_buffer()
-        print("sending... ", data)
+        # print("sending... ", data)
 
     def odom_serial_receive(self):
         if self.serial_port.in_waiting >= 26:
