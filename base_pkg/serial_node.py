@@ -21,7 +21,7 @@ class SerialNode(Node):
         self.cmd_subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.joy_callback, 10)
         self.pid_subscription = self.create_subscription(Float32MultiArray, '/pid_config', self.pid_callback, 10)
         self.get_logger().info('Serial node is running...')
-        self.serial_port = serial.Serial(RED_TTL, 115200)
+        self.serial_port = serial.Serial(BLACK_TTL, 115200)
         self.timer = self.create_timer(0.005, self.odom_serial_receive)
 
     def pid_callback(self, msg):
@@ -42,7 +42,7 @@ class SerialNode(Node):
                 bytes(struct.pack("f", msg.data[10])),
                 bytes(struct.pack("f", msg.data[11]))]
         data = b''.join(data)
-        hash_value = self.calc_crc(data[2:])
+        hash_value = self.tx_calc_crc(data[2:])
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
@@ -58,12 +58,12 @@ class SerialNode(Node):
                 bytes(struct.pack("f", msg.data[1])),
                 bytes(struct.pack("f", msg.data[2]))]
         data = b''.join(data)
-        hash_value = self.calc_crc(data[2:])
+        hash_value = self.tx_calc_crc(data[2:])
         data = [data, bytes(struct.pack('B', hash_value))]
         data = b''.join(data)
         self.serial_port.write(data)
         self.serial_port.reset_output_buffer()
-        # print("sending...")
+        print("sending... ", data)
 
     def odom_serial_receive(self):
         if self.serial_port.in_waiting >= 26:
@@ -75,19 +75,24 @@ class SerialNode(Node):
                     # print("new data")
                     data_str = self.serial_port.read(25)
                     start_byte_found = True
-            hash = self.calc_crc(data_str)
+            hash = self.rx_calc_crc(data_str)
             if hash == data_str[-1]:
                 self.serial_port.reset_input_buffer()
                 # print("hash matched")
                 msg = Float32MultiArray()
                 msg.data = struct.unpack("ffffff", data_str[0:24])
                 self.raw_state_publisher.publish(msg)
-                self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
+                # self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
                 # print(msg.data)
 
-    def calc_crc(self, data=[]):
+    def rx_calc_crc(self, data=[]):
         hash_func = crc8.crc8()
         hash_func.update(data[0:-1])
+        return hash_func.digest()[0]
+    
+    def tx_calc_crc(self, data=[]):
+        hash_func = crc8.crc8()
+        hash_func.update(data[2:])
         return hash_func.digest()[0]
 
     def calc_checksum(self, data=[]):
