@@ -20,7 +20,7 @@ class SerialNode(Node):
         self.timer = self.create_timer(0.005, self.odom_serial_receive)
 
     def joy_callback(self, msg):
-        print(msg.data)
+        # print(msg.data)
         data = [bytes(struct.pack("B", START_BYTE)),
                 bytes(struct.pack("f", msg.data[0])),
                 bytes(struct.pack("f", msg.data[1])),
@@ -31,7 +31,7 @@ class SerialNode(Node):
         data = b''.join(data)
         self.serial_port.write(data)
         self.serial_port.reset_output_buffer()
-        # print("sending...")
+        print("sending...", data)
 
     def odom_serial_receive(self):
         if self.serial_port.in_waiting >= 26:
