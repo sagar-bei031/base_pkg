@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 
-HOST = '10.100.40.1'
+HOST = '127.0.0.1'
 PORT = 5550
 
 class SimulationNode(Node):

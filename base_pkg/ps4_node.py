@@ -13,7 +13,7 @@ def joy_callback(msg):
     global last_published_time
     dt = time.time() - last_published_time
 
-    if (dt>0.05):
+    if (dt>0.02):
         global isEmergencyBrake
 
         # print(msg.axes)
@@ -45,7 +45,7 @@ def joy_callback(msg):
 
         # print(msg.buttons)
         set_speed(vx, vy, w)
-        last_published_time += dt
+        last_published_time = time.time()
 
 
 def set_speed(vx, vy, w):
