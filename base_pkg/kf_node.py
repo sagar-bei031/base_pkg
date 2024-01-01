@@ -11,8 +11,8 @@ from std_msgs.msg import Float32MultiArray
 class FilterNode(Node):
     def __init__(self):
         super().__init__('filter_node')
-        self.joy_subscription = self.create_subscription(Float32MultiArray,
-                                                         '/raw_robot_state',
+        self.cmd_subscription = self.create_subscription(Float32MultiArray,
+                                                         '/cmd_robot_vel',
                                                          self.estimate_callback,
                                                          10)
         self.odom_subscription = self.create_subscription(Float32MultiArray,
@@ -45,10 +45,10 @@ class FilterNode(Node):
         u = np.array([[cmd_msg.data[0]],
                       [cmd_msg.data[1]],
                       [cmd_msg.data[2]]])
-        self.kf.predict(u, self.generate_B(dt), None, self.kf.generate_Q(dt))
+        self.kf.predict(u, self.generate_B(dt), None, self.generate_Q(dt))
         self.last_predict_time = time.time()
 
-        # self.get_logger().info('predicted_data:: "%f %f %f"' %(self.kf.x[0]*100, self.kf.x[1]*100, self.kf.x[2]*180/math.pi))
+        self.get_logger().info('predicted_data:: "%f %f %f"' %(self.kf.x[0]*100, self.kf.x[1]*100, self.kf.x[2]*180/math.pi))
 
     def measurement_callback(self, state_msg):
         z = np.array([[state_msg.data[0]],
@@ -60,18 +60,17 @@ class FilterNode(Node):
         self.kf.update(z)
 
         odom_msg = Float32MultiArray()
-        odom_msg.data = [float(self.kf.xx[0]), float(
-            self.kf.xx[1]), float(self.kf.x[2])]
+        odom_msg.data = [float(self.kf.x[0]), float(self.kf.x[1]), float(self.kf.x[2])]
         self.filter_publisher_.publish(odom_msg)
         # self.get_logger().info('filtered_data:: "%f %f %f"' %(self.kf.x[0]*100, self.kf.x[1]*100, self.kf.x[2]*180/math.pi))
 
     def generate_B(self, dt):
-        B = np.array([[dt,  0.0, 0.0, 0.0, 0.0, 0.0],
-                      [0.0, dt,  0.0, 0.0, 0.0, 0.0],
-                      [0.0, 0.0, dt,  0.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-                      [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-                      [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+        B = np.array([[ dt, 0.0, 0.0],
+                      [0.0,  dt, 0.0],
+                      [0.0, 0.0,  dt],
+                      [1.0, 0.0, 0.0],
+                      [0.0, 1.0, 0.0],
+                      [0.0, 0.0, 1.0]])
         return B
 
     def generate_Q(self, dt):
