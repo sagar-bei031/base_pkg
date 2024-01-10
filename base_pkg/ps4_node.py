@@ -14,7 +14,7 @@ def map_value(value, min_value, max_value, new_min, new_max):
 
 class PS4Node(Node):
     def __init__(self):
-        super.__init__('ps4_node')
+        super().__init__('ps4_node')
         self.cmd_publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
         self.joy_subscriber = self.create_subscription(Joy, 'joy', self.joy_callback, 10)
         self.isEmergencyBrake = False
@@ -24,7 +24,7 @@ class PS4Node(Node):
     def joy_callback(self, msg):
         dt = time.time() - self.last_published_time
 
-        if (dt > 0.02):
+        if (dt > 0.033):
             # print(msg.axes)
 
             if (msg.buttons[5] == 1):
@@ -44,9 +44,9 @@ class PS4Node(Node):
             w = map_value(msg.axes[2] - msg.axes[5], -2.0, 2.0,
                           MAX_OMEGA, -MAX_OMEGA) * speedFactor  # L2 - R2
 
-            if ((msg.axes[6] != 0) | (msg.axes[7] != 0)):
-                vy = msg.axes[7] * MAX_VELOCITY * speedFactor
-                vx = -msg.axes[6] * MAX_VELOCITY * speedFactor
+            # if ((msg.axes[6] != 0) | (msg.axes[7] != 0)):
+            #     vy = msg.axes[7] * MAX_VELOCITY * speedFactor
+            #     vx = -msg.axes[6] * MAX_VELOCITY * speedFactor
 
             if (msg.buttons[10]):
                 self.isEmergencyBrake = True
@@ -57,7 +57,7 @@ class PS4Node(Node):
             if (self.isEmergencyBrake):
                 vx = vy = w = 0.0
 
-            # print(msg.buttons)
+            print(msg.buttons)
             self.set_speed(vx, vy, w)
             last_published_time = time.time()
 

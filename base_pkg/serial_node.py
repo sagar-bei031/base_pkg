@@ -1,67 +1,103 @@
 import serial
 import struct
-import numpy as np
-import math
+from math import sin, cos, radians
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray
-import crc8
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist
+from crc8 import crc8
 
 START_BYTE = 0xA5
+
+RED_TTL = '/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0'
 BLACK_TTL = '/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0'
+USING_TTL = RED_TTL
 
 class SerialNode(Node):
     def __init__(self):
         super().__init__('serial_node')
-        self.state_publisher_ = self.create_publisher(Float32MultiArray, '/raw_robot_state', 10)
-        self.cmd_subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.joy_callback, 10)
-        self.get_logger().info('Serial node is running...')
-        self.serial_port = serial.Serial(BLACK_TTL, 115200)
-        self.timer = self.create_timer(0.005, self.odom_serial_receive)
+        self.odom_publisher_ = self.create_publisher(
+            Odometry, 'freewheel/odom', 10)
+        self.subscription = self.create_subscription(
+            Twist, 'cmd_vel', self.joy_callback, 10)
 
-    def joy_callback(self, msg):
-        # print(msg.data)
-        data = [bytes(struct.pack("B", START_BYTE)),
-                bytes(struct.pack("f", msg.data[0])),
-                bytes(struct.pack("f", msg.data[1])),
-                bytes(struct.pack("f", msg.data[2]))]
+        self.is_waiting_for_start_byte = True
+        self.timer = self.create_timer(0, self.odom_serial_receive)
+        self.serial_port = serial.Serial(USING_TTL, 115200)
+        self.odom_seq = 0
+
+        self.get_logger().info('Serial node is running...')
+
+    def joy_callback(self, twist_msg):
+        data = [
+            bytes(struct.pack("B", START_BYTE)),
+            bytes(struct.pack("f", float(twist_msg.linear.x))),
+            bytes(struct.pack("f", float(twist_msg.linear.y))),
+            bytes(struct.pack("f", float(twist_msg.angular.z)))]
         data = b''.join(data)
-        hash_value = self.tx_calc_crc(data)
-        data = [data, bytes(struct.pack('B', hash_value))]
+        hash = self.calc_crc(data[1:])
+        data = [data, bytes(struct.pack('B', hash))] 
         data = b''.join(data)
-        self.serial_port.write(data)
         self.serial_port.reset_output_buffer()
-        # print("sending...")
+        self.serial_port.write(data)
+        # print(data)
 
     def odom_serial_receive(self):
-        if self.serial_port.in_waiting >= 26:
-            start_byte_found = False
-            while not start_byte_found:
-                byte = self.serial_port.read(1)
+        if self.is_waiting_for_start_byte:
+            byte = self.serial_port.read(1)
+            if int.from_bytes(byte, 'big') == START_BYTE:
                 # print(byte)
-                if int.from_bytes(byte, 'big') == START_BYTE:
-                    # print("new data")
-                    data_str = self.serial_port.read(25)
-                    start_byte_found = True
-            hash = self.rx_calc_crc(data_str)
+                self.is_waiting_for_start_byte = False
+            else:
+                self.get_logger().info("Start Byte Not Matched")
+            return
+        if self.serial_port.in_waiting >= 25:
+            self.is_waiting_for_start_byte = True
+            data_str = self.serial_port.read(25)
+            hash = self.calc_crc(data_str[:-1])
             if hash == data_str[-1]:
-                self.serial_port.reset_input_buffer()
-                # print("hash matched")
-                msg = Float32MultiArray()
-                msg.data = struct.unpack("ffffff", data_str[0:24])
-                self.state_publisher_.publish(msg)
-                self.get_logger().info('raw_data "%f %f %f %f %f %f"' %(msg.data[0]*100, msg.data[1]*100, msg.data[2]*180/math.pi, msg.data[3]*100, msg.data[4]*100, msg.data[5]*180/math.pi))
-                # print(msg.data)
+                # data = [x, y, theta, vx, vy, omega]
+                data = struct.unpack("ffffff", data_str[0:24])
+                odom_msg = Odometry()
+                odom_msg.header.stamp = self.get_clock().now().to_msg()
+                odom_msg.header.frame_id = 'odom'
+                odom_msg.child_frame_id = 'base_link'
+                odom_msg.pose.pose.position.x = data[0]
+                odom_msg.pose.pose.position.y = data[1]
+                odom_msg.pose.pose.position.z = 0.0
+                qw, qx, qy, qz = rollpitchyaw_to_quaternion(0.0, 0.0, data[2])
+                odom_msg.pose.pose.orientation.w = qw
+                odom_msg.pose.pose.orientation.x = qx
+                odom_msg.pose.pose.orientation.y = qy
+                odom_msg.pose.pose.orientation.z = qz
+                odom_msg.pose.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                            0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
+                                            0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                                            0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
+                                            0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
+                                            0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+                odom_msg.twist.twist.linear.x = data[3]
+                odom_msg.twist.twist.linear.y = data[4]
+                odom_msg.twist.twist.linear.z = 0.0
+                odom_msg.twist.twist.angular.x = 0.0
+                odom_msg.twist.twist.angular.y = 0.0
+                odom_msg.twist.twist.angular.z = data[5]
+                odom_msg.twist.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                             0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
+                                             0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                                             0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
+                                             0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
+                                             0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+                self.odom_publisher_.publish(odom_msg)
+                self.odom_seq += 1
+                self.get_logger().info('"%f %f %f %f %f %f"'
+                                        %(data[0], data[1], data[2], data[3], data[4], data[5]))
+            else:
+                self.get_logger().info('Hash error')
 
-    # To check crc while recieving data
-    def rx_calc_crc(self, data=[]):
-        hash_func = crc8.crc8()
-        hash_func.update(data[0:-1])
-        return hash_func.digest()[0]
-
-    def tx_calc_crc(self, data=[]):
-        hash_func = crc8.crc8()
-        hash_func.update(data[1:])
+    def calc_crc(self, data=[]):
+        hash_func = crc8()
+        hash_func.update(data)
         return hash_func.digest()[0]
 
     def calc_checksum(self, data=[]):
@@ -70,16 +106,39 @@ class SerialNode(Node):
             checksum = checksum ^ data[i]
         return checksum
 
+
+def rollpitchyaw_to_quaternion(roll, pitch, yaw):
+    roll_rad = radians(roll)
+    pitch_rad = radians(pitch)
+    yaw_rad = radians(yaw)
+
+    cy = cos(yaw_rad * 0.5)
+    sy = sin(yaw_rad * 0.5)
+    cp = cos(pitch_rad * 0.5)
+    sp = sin(pitch_rad * 0.5)
+    cr = cos(roll_rad * 0.5)
+    sr = sin(roll_rad * 0.5)
+
+    qw = cy * cp * cr + sy * sp * sr
+    qx = cy * cp * sr - sy * sp * cr
+    qy = sy * cp * sr + cy * sp * cr
+    qz = sy * cp * cr - cy * sp * sr
+
+    return qw, qx, qy, qz
+
+
 def main(args=None):
     rclpy.init(args=args)
-    ser = SerialNode()
-    try:
-        rclpy.spin(ser)
-    except KeyboardInterrupt:
-        pass
-    ser.destroy_node()
-    if rclpy.ok():
-        rclpy.shutdown()
+    myserial = SerialNode()
+    while True:
+        try:
+            rclpy.spin(node=myserial)
+        except KeyboardInterrupt:
+            if rclpy.ok():
+                myserial.destroy_node()
+                rclpy.shutdown()
+            exit()
 
-if __name__ == '__main__':
+
+if _name_ == '_main_':
     main()
