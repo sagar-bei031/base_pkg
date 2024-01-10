@@ -22,7 +22,7 @@ class SerialNode(Node):
             Twist, 'cmd_vel', self.joy_callback, 10)
 
         self.is_waiting_for_start_byte = True
-        self.timer = self.create_timer(0, self.odom_serial_receive)
+        self.timer = self.create_timer(0.03, self.odom_serial_receive)
         self.serial_port = serial.Serial(USING_TTL, 115200)
         self.odom_seq = 0
 
@@ -139,6 +139,5 @@ def main(args=None):
                 rclpy.shutdown()
             exit()
 
-
-if _name_ == '_main_':
+if __name__ == '_main_':
     main()
