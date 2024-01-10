@@ -25,39 +25,40 @@ class PS4Node(Node):
         dt = time.time() - self.last_published_time
 
         if (dt > 0.033):
-            # print(msg.axes)
-
+            # R1
             if (msg.buttons[5] == 1):
                 speedFactor = 0.2
             else:
                 speedFactor = 1.0
 
             # Map left joystick to velocity_x and velocity_y
-            # X-axis of left joystick
-            vx = map_value(msg.axes[0], -1.0, 1.0,
-                           MAX_VELOCITY, -MAX_VELOCITY) * speedFactor
-            # Y-axis of left joystick
-            vy = map_value(msg.axes[1], -1.0,  1.0, -
+            # horizontal of left joystick
+            vy = map_value(msg.axes[0], -1.0, 1.0,
+                           -MAX_VELOCITY, MAX_VELOCITY) * speedFactor
+            # verticle of left joystick
+            vx = map_value(msg.axes[1], -1.0,  1.0, -
                            MAX_VELOCITY, MAX_VELOCITY) * speedFactor
 
             # Map L2 and R2 to omega
             w = map_value(msg.axes[2] - msg.axes[5], -2.0, 2.0,
                           MAX_OMEGA, -MAX_OMEGA) * speedFactor  # L2 - R2
 
-            # if ((msg.axes[6] != 0) | (msg.axes[7] != 0)):
-            #     vy = msg.axes[7] * MAX_VELOCITY * speedFactor
-            #     vx = -msg.axes[6] * MAX_VELOCITY * speedFactor
+            # left pad buttoons, horizontal, verticle
+            if ((msg.axes[6] != 0) | (msg.axes[7] != 0)):
+                vy = msg.axes[6] * MAX_VELOCITY * speedFactor
+                vx = msg.axes[7] * MAX_VELOCITY * speedFactor
 
+            # ps4_button
             if (msg.buttons[10]):
                 self.isEmergencyBrake = True
 
+            # L1 R1
             if (msg.buttons[4] and msg.buttons[5] and msg.buttons[10]):
                 self.isEmergencyBrake = False
 
             if (self.isEmergencyBrake):
                 vx = vy = w = 0.0
 
-            print(msg.buttons)
             self.set_speed(vx, vy, w)
             last_published_time = time.time()
 
@@ -65,15 +66,19 @@ class PS4Node(Node):
         twist = Twist()
         twist.linear.x, twist.linear.y, twist.angular.z = vx, vy, w
         self.cmd_publisher_.publish(twist)
-        print(twist.linear.x, twist, twist.linear.y, twist.angular.z)
+        self.get_logger().info('vx vy w: "%f %f %f"' 
+                               %(twist.linear.x, twist.linear.y, twist.angular.z))
 
 def main():
-    rclpy.init()
-    ps4 = PS4Node()
-    rclpy.spin(ps4)
-    if rclpy.ok():
-        rclpy.shutdown()
-
+    try:
+        rclpy.init()
+        ps4 = PS4Node()
+        rclpy.spin(ps4)
+    except KeyboardInterrupt:
+        if rclpy.ok():
+            ps4.destroy_node()
+            rclpy.shutdown()
+        exit()
 
 if __name__ == '__main__':
     main()
