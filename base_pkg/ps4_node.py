@@ -36,8 +36,8 @@ class PS4Node(Node):
             vy = map_value(msg.axes[0], -1.0, 1.0,
                            -MAX_VELOCITY, MAX_VELOCITY) * speedFactor
             # verticle of left joystick
-            vx = map_value(msg.axes[1], -1.0,  1.0, -
-                           MAX_VELOCITY, MAX_VELOCITY) * speedFactor
+            vx = map_value(msg.axes[1], -1.0,  1.0,
+                           -MAX_VELOCITY, MAX_VELOCITY) * speedFactor
 
             # Map L2 and R2 to omega
             w = map_value(msg.axes[2] - msg.axes[5], -2.0, 2.0,

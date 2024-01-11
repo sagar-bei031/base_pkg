@@ -1,6 +1,7 @@
 import serial
+import math
 import struct
-from math import sin, cos, radians
+from math import sin, cos
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
@@ -11,7 +12,7 @@ START_BYTE = 0xA5
 
 RED_TTL = '/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0'
 BLACK_TTL = '/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0'
-USING_TTL = RED_TTL
+USING_TTL = BLACK_TTL
 
 class SerialNode(Node):
     def __init__(self):
@@ -22,7 +23,7 @@ class SerialNode(Node):
             Twist, 'cmd_vel', self.joy_callback, 10)
 
         self.is_waiting_for_start_byte = True
-        self.timer = self.create_timer(0.03, self.odom_serial_receive)
+        self.timer = self.create_timer(0, self.odom_serial_receive)
         self.serial_port = serial.Serial(USING_TTL, 115200)
         self.odom_seq = 0
 
@@ -108,9 +109,9 @@ class SerialNode(Node):
 
 
 def rollpitchyaw_to_quaternion(roll, pitch, yaw):
-    roll_rad = radians(roll)
-    pitch_rad = radians(pitch)
-    yaw_rad = radians(yaw)
+    roll_rad = math.radians(roll)
+    pitch_rad = math.radians(pitch)
+    yaw_rad = math.radians(yaw)
 
     cy = cos(yaw_rad * 0.5)
     sy = sin(yaw_rad * 0.5)
@@ -139,5 +140,6 @@ def main(args=None):
                 rclpy.shutdown()
             exit()
 
-if __name__ == '_main_':
+
+if __name__ == '__main__':
     main()
