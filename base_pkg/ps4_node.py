@@ -24,7 +24,7 @@ class PS4Node(Node):
     def joy_callback(self, msg):
         dt = time.time() - self.last_published_time
 
-        if (dt > 0.033):
+        if (dt > 0.05):
             # R1
             if (msg.buttons[5] == 1):
                 speedFactor = 0.2

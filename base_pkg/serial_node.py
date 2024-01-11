@@ -7,6 +7,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from crc8 import crc8
+import time
 
 START_BYTE = 0xA5
 
@@ -26,10 +27,12 @@ class SerialNode(Node):
         self.timer = self.create_timer(0, self.odom_serial_receive)
         self.serial_port = serial.Serial(USING_TTL, 115200)
         self.odom_seq = 0
+        self.last_published_time = time.time()
 
         self.get_logger().info('Serial node is running...')
 
     def joy_callback(self, twist_msg):
+        # print("callback")
         data = [
             bytes(struct.pack("B", START_BYTE)),
             bytes(struct.pack("f", float(twist_msg.linear.x))),
@@ -59,39 +62,41 @@ class SerialNode(Node):
             if hash == data_str[-1]:
                 # data = [x, y, theta, vx, vy, omega]
                 data = struct.unpack("ffffff", data_str[0:24])
-                odom_msg = Odometry()
-                odom_msg.header.stamp = self.get_clock().now().to_msg()
-                odom_msg.header.frame_id = 'odom'
-                odom_msg.child_frame_id = 'base_link'
-                odom_msg.pose.pose.position.x = data[0]
-                odom_msg.pose.pose.position.y = data[1]
-                odom_msg.pose.pose.position.z = 0.0
-                qw, qx, qy, qz = rollpitchyaw_to_quaternion(0.0, 0.0, data[2])
-                odom_msg.pose.pose.orientation.w = qw
-                odom_msg.pose.pose.orientation.x = qx
-                odom_msg.pose.pose.orientation.y = qy
-                odom_msg.pose.pose.orientation.z = qz
-                odom_msg.pose.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                            0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
-                                            0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
-                                            0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
-                                            0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
-                                            0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
-                odom_msg.twist.twist.linear.x = data[3]
-                odom_msg.twist.twist.linear.y = data[4]
-                odom_msg.twist.twist.linear.z = 0.0
-                odom_msg.twist.twist.angular.x = 0.0
-                odom_msg.twist.twist.angular.y = 0.0
-                odom_msg.twist.twist.angular.z = data[5]
-                odom_msg.twist.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                             0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
-                                             0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
-                                             0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
-                                             0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
-                                             0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
-                self.odom_publisher_.publish(odom_msg)
-                self.odom_seq += 1
-                self.get_logger().info('"%f %f %f %f %f %f"'
+
+                if (time.time() - self.last_published_time  > 0.05):
+                    odom_msg = Odometry()
+                    odom_msg.header.stamp = self.get_clock().now().to_msg()
+                    odom_msg.header.frame_id = 'odom'
+                    odom_msg.child_frame_id = 'base_link'
+                    odom_msg.pose.pose.position.x = data[0]
+                    odom_msg.pose.pose.position.y = data[1]
+                    odom_msg.pose.pose.position.z = 0.0
+                    qw, qx, qy, qz = rollpitchyaw_to_quaternion(0.0, 0.0, data[2])
+                    odom_msg.pose.pose.orientation.w = qw
+                    odom_msg.pose.pose.orientation.x = qx
+                    odom_msg.pose.pose.orientation.y = qy
+                    odom_msg.pose.pose.orientation.z = qz
+                    odom_msg.pose.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                                0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
+                                                0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                                                0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
+                                                0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
+                                                0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+                    odom_msg.twist.twist.linear.x = data[3]
+                    odom_msg.twist.twist.linear.y = data[4]
+                    odom_msg.twist.twist.linear.z = 0.0
+                    odom_msg.twist.twist.angular.x = 0.0
+                    odom_msg.twist.twist.angular.y = 0.0
+                    odom_msg.twist.twist.angular.z = data[5]
+                    odom_msg.twist.covariance = [0.1, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                                 0.0, 0.1, 0.0, 0.0, 0.0, 0.0,
+                                                 0.0, 0.0, 0.1, 0.0, 0.0, 0.0,
+                                                 0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
+                                                 0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
+                                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.01]
+                    self.odom_publisher_.publish(odom_msg)
+                    self.odom_seq += 1
+                    self.get_logger().info('"%f %f %f %f %f %f"'
                                         %(data[0], data[1], data[2], data[3], data[4], data[5]))
             else:
                 self.get_logger().info('Hash error')
