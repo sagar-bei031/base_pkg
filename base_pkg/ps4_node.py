@@ -60,7 +60,7 @@ class PS4Node(Node):
                 vx = vy = w = 0.0
 
             self.set_speed(vx, vy, w)
-            last_published_time = time.time()
+            self.last_published_time = time.time()
 
     def set_speed(self, vx, vy, w):
         twist = Twist()
