@@ -19,7 +19,7 @@ class SerialNode(Node):
         self.cmd_subscription = self.create_subscription(Float32MultiArray, '/cmd_robot_vel', self.cmd_callback, 10)
         self.get_logger().info('Serial node is running...')
         self.serial_port = serial.Serial(USING_TTL, 115200)
-        self.timer = self.create_timer(0.005, self.odom_serial_receive)
+        self.timer = self.create_timer(0.03, self.odom_serial_receive)
 
     def cmd_callback(self, msg):
         # print(msg.data)

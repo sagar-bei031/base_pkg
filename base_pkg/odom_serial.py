@@ -22,7 +22,10 @@ class SerialNode(Node):
             Odometry, 'freewheel/odom', 10)
         self.serial_port = serial.Serial(USING_TTL, 115200)
         self.last_sent_time = time.time()
+        self.odom_seq = 0
+        self.is_waiting_for_start_byte = True
         self.get_logger().info('odom_node is running..')
+        
 
     def receive_and_publish(self):
         if self.serial_port.in_waiting >= 26:
@@ -40,7 +43,7 @@ class SerialNode(Node):
                 hash = self.calc_crc(data_str[:-1])
                 if hash == data_str[-1]:
                     # data = [x, y, theta, vx, vy, omega]
-                    if (time.time() - self.last_pub_time):
+                    if (time.time() - self.last_sent_time > 0.05):
                         data = struct.unpack("ffffff", data_str[0:24])
                         odom_msg = Odometry()
                         odom_msg.header.stamp = self.get_clock().now().to_msg()
@@ -74,8 +77,9 @@ class SerialNode(Node):
                                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.04]
                         self.odom_publisher_.publish(odom_msg)
                         self.odom_seq += 1
+                        self.last_sent_time = time.time()
                         self.get_logger().info('"%f %f %f %f %f %f"'
-                                            %(data[0], data[1], data[2], data[3], data[4], data[5]))
+                                           %(data[0], data[1], data[2], data[3], data[4], data[5]))
                 else:
                     self.get_logger().info('Hash error')
 
@@ -116,7 +120,7 @@ def main(args=None):
     myserial = SerialNode()
     while True:
         try:
-            rclpy.spin(node=myserial)
+            myserial.receive_and_publish()
         except KeyboardInterrupt:
             if rclpy.ok():
                 myserial.destroy_node()
@@ -126,3 +130,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+ 
