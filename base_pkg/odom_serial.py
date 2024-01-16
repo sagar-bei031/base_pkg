@@ -1,7 +1,7 @@
 import serial
 import struct
 import rclpy
-from math import sin, cos, radians
+from math import sin, cos, radians, pi
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
@@ -79,9 +79,9 @@ class SerialNode(Node):
                         self.odom_seq += 1
                         self.last_sent_time = time.time()
                         self.get_logger().info('"%f %f %f %f %f %f"'
-                                           %(data[0], data[1], data[2], data[3], data[4], data[5]))
-                else:
-                    self.get_logger().info('Hash error')
+                                           %(data[0]*100, data[1]*100, data[2]*180/pi, data[3], data[4], data[5]))
+                # else:
+                #     self.get_logger().info('Hash error')
 
     def calc_crc(self, data=[]):
         hash_func = crc8()
@@ -94,23 +94,18 @@ class SerialNode(Node):
             checksum = checksum ^ data[i]
         return checksum
 
-
 def rollpitchyaw_to_quaternion(roll, pitch, yaw):
-    roll_rad = radians(roll)
-    pitch_rad = radians(pitch)
-    yaw_rad = radians(yaw)
+    cr = cos(roll * 0.5)
+    sr = sin(roll * 0.5)
+    cp = cos(pitch * 0.5)
+    sp = sin(pitch * 0.5)
+    cy = cos(yaw * 0.5)
+    sy = sin(yaw * 0.5)
 
-    cy = cos(yaw_rad * 0.5)
-    sy = sin(yaw_rad * 0.5)
-    cp = cos(pitch_rad * 0.5)
-    sp = sin(pitch_rad * 0.5)
-    cr = cos(roll_rad * 0.5)
-    sr = sin(roll_rad * 0.5)
-
-    qw = cy * cp * cr + sy * sp * sr
-    qx = cy * cp * sr - sy * sp * cr
-    qy = sy * cp * sr + cy * sp * cr
-    qz = sy * cp * cr - cy * sp * sr
+    qw = cr * cp * cy + sr * sp * sy
+    qx = sr * cp * cy - cr * sp * sy
+    qy = cr * sp * cy + sr * cp * sy
+    qz = cr * cp * sy - sr * sp * cy
 
     return qw, qx, qy, qz
 

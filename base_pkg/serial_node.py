@@ -49,6 +49,9 @@ class SerialNode(Node):
             # print(data)
 
     def odom_serial_receive(self):
+        if (self.serial_port.in_waiting < 26):
+            return
+
         if self.is_waiting_for_start_byte:
             byte = self.serial_port.read(1)
             if int.from_bytes(byte, 'big') == START_BYTE:
@@ -56,8 +59,7 @@ class SerialNode(Node):
                 self.is_waiting_for_start_byte = False
             else:
                 self.get_logger().info("Start Byte Not Matched")
-            return
-        if self.serial_port.in_waiting >= 25:
+        else:
             self.is_waiting_for_start_byte = True
             data_str = self.serial_port.read(25)
             hash = self.calc_crc(data_str[:-1])
