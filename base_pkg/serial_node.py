@@ -6,6 +6,7 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Int32MultiArray
 from crc8 import crc8
 import time
 
@@ -22,7 +23,10 @@ class SerialNode(Node):
             Odometry, 'freewheel/odom', 10)
         self.subscription = self.create_subscription(
             Twist, 'cmd_vel', self.joy_callback, 10)
-
+        
+        self.enc_count_publisher_ = self.create_publisher(
+            Int32MultiArray, 'freewheel/count', 10)
+        
         self.is_waiting_for_start_byte = True
         self.timer = self.create_timer(0.1, self.odom_serial_receive)
         self.serial_port = serial.Serial(USING_TTL, 115200)
@@ -49,7 +53,7 @@ class SerialNode(Node):
             # print(data)
 
     def odom_serial_receive(self):
-        if (self.serial_port.in_waiting < 26):
+        if (self.serial_port.in_waiting < 38):
             return
 
         if self.is_waiting_for_start_byte:
@@ -61,12 +65,13 @@ class SerialNode(Node):
                 self.get_logger().info("Start Byte Not Matched")
         else:
             self.is_waiting_for_start_byte = True
-            data_str = self.serial_port.read(25)
+            data_str = self.serial_port.read(37)
             hash = self.calc_crc(data_str[:-1])
             if hash == data_str[-1]:
                 # data = [x, y, theta, vx, vy, omega]
-                if (time.time() - self.last_pub_time):
-                    data = struct.unpack("ffffff", data_str[0:24])
+                now = time.time()
+                if (now - self.last_pub_time >= 50):
+                    data = struct.unpack("ffffffiii", data_str[0:36])
                     odom_msg = Odometry()
                     odom_msg.header.stamp = self.get_clock().now().to_msg()
                     odom_msg.header.frame_id = 'odom'
@@ -99,8 +104,17 @@ class SerialNode(Node):
                                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.04]
                     self.odom_publisher_.publish(odom_msg)
                     self.odom_seq += 1
-                    self.get_logger().info('"%f %f %f %f %f %f"'
-                                        %(data[0], data[1], data[2], data[3], data[4], data[5]))
+
+                    count_msg = Int32MultiArray()
+                    count_msg.data = [data[6], data[7], data[8]]
+                    self.enc_count_publisher_.publish(count_msg)
+
+                    self.get_logger().info('"%f %f %f %f %f %f %i %i %i"'
+                                        %(data[0], data[1], data[2], 
+                                          data[3], data[4], data[5],
+                                          data[6], data[7], data[8]))
+                    
+                    self.last_pub_time = now
             else:
                 self.get_logger().info('Hash error')
 

@@ -4,6 +4,7 @@ import rclpy
 from math import sin, cos, radians, pi
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Int32MultiArray
 from geometry_msgs.msg import Twist
 import time
 from crc8 import crc8
@@ -24,11 +25,14 @@ class SerialNode(Node):
         self.last_sent_time = time.time()
         self.odom_seq = 0
         self.is_waiting_for_start_byte = True
+
+        self.enc_count_publisher_ = self.create_publisher(
+            Int32MultiArray, 'freewheel/count', 10)
         self.get_logger().info('odom_node is running..')
         
 
     def receive_and_publish(self):
-        if self.serial_port.in_waiting >= 26:
+        if self.serial_port.in_waiting >= 38:
             if self.is_waiting_for_start_byte:
                 byte = self.serial_port.read(1)
                 if int.from_bytes(byte, 'big') == START_BYTE:
@@ -36,15 +40,16 @@ class SerialNode(Node):
                     self.is_waiting_for_start_byte = False
                 else:
                     self.get_logger().info("Start Byte Not Matched")
-                return
-            if self.serial_port.in_waiting >= 25:
+
+            else:
                 self.is_waiting_for_start_byte = True
-                data_str = self.serial_port.read(25)
+                data_str = self.serial_port.read(37)
                 hash = self.calc_crc(data_str[:-1])
                 if hash == data_str[-1]:
                     # data = [x, y, theta, vx, vy, omega]
-                    if (time.time() - self.last_sent_time > 0.05):
-                        data = struct.unpack("ffffff", data_str[0:24])
+                    now = time.time()
+                    if (now - self.last_sent_time > 0.05):
+                        data = struct.unpack("ffffffiii", data_str[0:36])
                         odom_msg = Odometry()
                         odom_msg.header.stamp = self.get_clock().now().to_msg()
                         odom_msg.header.frame_id = 'odom'
@@ -77,11 +82,24 @@ class SerialNode(Node):
                                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.04]
                         self.odom_publisher_.publish(odom_msg)
                         self.odom_seq += 1
-                        self.last_sent_time = time.time()
-                        self.get_logger().info('"%f %f %f %f %f %f"'
-                                           %(data[0]*100, data[1]*100, data[2]*180/pi, data[3], data[4], data[5]))
-                # else:
-                #     self.get_logger().info('Hash error')
+
+                        count_msg = Int32MultiArray()
+                        count_msg.data = [data[6], data[7], data[8]]
+                        self.enc_count_publisher_.publish(count_msg)
+
+                        self.get_logger().info('"%f %f %f %f %f %f %i %i %i"'
+                                            %(data[0], data[1], data[2], 
+                                              data[3], data[4], data[5],
+                                              data[6], data[7], data[8]))
+
+                        self.last_sent_time = now
+
+                        self.get_logger().info('"%f %f %f %f %f %f %i %i %i"'
+                                            %(data[0]*100, data[1]*100, data[2]*180/pi, 
+                                              data[3]*100, data[4]*100, data[5]*180/pi,
+                                              data[6], data[7], data[8]))
+                else:
+                    self.get_logger().info('Hash error')
 
     def calc_crc(self, data=[]):
         hash_func = crc8()
