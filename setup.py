@@ -24,9 +24,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'filter_node = base_pkg.filter_node:main',
-            'esp_node = base_pkg.esp_node:main',
-            'simulation_node = base_pkg.simulation_node:main',
+            'odome_node = base_pkg.odom_node:main',
+            'joy_node = base_pkg.joy_node:main',
+            'cmd_node = base_pkg.cmd_node:main',
         ],
     },
 )

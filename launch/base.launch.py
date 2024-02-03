@@ -5,17 +5,17 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='base_pkg',
-            executable='esp_node',
-            name='esp'
+            executable='odome_node',
+            name='odom_node'
         ),
         Node(
             package='base_pkg',
-            executable='filter_node',
-            name='filter'
+            executable='cmd_node',
+            name='cmd_node'
         ),
         Node(
             package='base_pkg',
-            executable='simulation_node',
-            name='simulation'
+            executable='joy_node',
+            name='joy_node'
         ),
     ])
