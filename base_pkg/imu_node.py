@@ -18,7 +18,7 @@ esp_address='/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Contro
 rx_data_size = 42
 sum = 0
 
-class imu_node(Node):
+class ImuNode(Node):
     def __init__(self):
         super().__init__("imu_node")
         #  Odom data publisher
@@ -171,13 +171,13 @@ def quaternion_to_yawpitchroll(w, x, y, z):
 
 def main(args=None):
     rclpy.init()
-    serial_node = imu_node()
+    imu_node = ImuNode()
     while True:
         try:
-            serial_node.serial_receive()
+            imu_node.serial_receive()
         except KeyboardInterrupt:  
-            serial_node.serial_port.close()
-            serial_node.destroy_node()
+            imu_node.serial_port.close()
+            imu_node.destroy_node()
             rclpy.try_shutdown()
             exit()
    
