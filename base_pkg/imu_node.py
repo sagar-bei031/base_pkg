@@ -23,7 +23,7 @@ class ImuNode(Node):
         super().__init__("imu_node")
         #  Odom data publisher
         self.imu_publisher = self.create_publisher(Imu, 'imu/data', 10)
-        self.serial_port = serial.Serial(pico_address, serial_baudrate)
+        self.serial_port = serial.Serial(esp_address, serial_baudrate)
         self.data = [float(1), float(0), float(0), float(0), float(0), float(0), float(0), float(0), float(0), float(0)]
         self.is_waiting_for_start_byte = True
         self.last_publish_time = time.time()
@@ -40,18 +40,19 @@ class ImuNode(Node):
                 # print(byte)
                 self.is_waiting_for_start_byte = False
             else:
+                # pass
                 self.get_logger().info("Start Byte Not Matched")
         else:
             self.is_waiting_for_start_byte = True
             data_str = self.serial_port.read(rx_data_size-1)
             hash = self.calc_crc(data_str[:-1])
             if hash == data_str[-1]:
-                self.serial_port.reset_input_buffer()
+                # self.serial_port.reset_input_buffer()
                 self.data = struct.unpack("ffffffffff", data_str[0:-1])
                 self.process_data()
             else:
-                # print(f"data not matched,count: {count}")
-                print(data_str)
+                # pass
+                self.get_logger().info(data_str)
     
     def process_data(self):
         now = time.time()
@@ -112,7 +113,7 @@ class ImuNode(Node):
         self.last_publish_time = now
 
         yaw, pitch, roll = quaternion_to_yawpitchroll(self.data[0], self.data[1], self.data[2], self.data[3])
-        print(yaw*180/pi, pitch*180/pi, roll*180/pi)
+        self.get_logger().info('ypr: "%f %f %f"' %(yaw*180/pi, pitch*180/pi, roll*180/pi))
 
     def calc_crc(self, data=[]):
         hash_func = crc8()
