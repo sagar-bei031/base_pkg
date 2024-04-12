@@ -87,14 +87,9 @@ class SerialNode(Node):
                         count_msg.data = [data[6], data[7], data[8]]
                         self.enc_count_publisher_.publish(count_msg)
 
-                        self.get_logger().info('"%f %f %f %f %f %f %i %i %i"'
-                                            %(data[0], data[1], data[2], 
-                                              data[3], data[4], data[5],
-                                              data[6], data[7], data[8]))
-
                         self.last_sent_time = now
 
-                        self.get_logger().info('"%f %f %f %f %f %f %i %i %i"'
+                        self.get_logger().info('"x:%f y:%f yaw:%f vx:%f vy:%f vyaw:%f %i %i %i"'
                                             %(data[0]*100, data[1]*100, data[2]*180/pi, 
                                               data[3]*100, data[4]*100, data[5]*180/pi,
                                               data[6], data[7], data[8]))
