@@ -14,7 +14,7 @@ START_BYTE = 0xA5
 
 RED_TTL = '/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A50285BI-if00-port0'
 BLACK_TTL = '/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0'
-USING_TTL = BLACK_TTL
+USING_TTL = '/dev/ttyACM0'
 
 class SerialNode(Node):
     def __init__(self):
@@ -25,15 +25,12 @@ class SerialNode(Node):
         self.last_sent_time = time.time()
         self.odom_seq = 0
         self.is_waiting_for_start_byte = True
-
-        self.enc_count_publisher_ = self.create_publisher(
-            Int32MultiArray, 'freewheel/count', 10)
         self.get_logger().info('odom_node is running..')
         
 
     def receive_and_publish(self):
-        if self.serial_port.in_waiting >= 38:
-            if self.is_waiting_for_start_byte:
+        if self.is_waiting_for_start_byte:
+            if self.serial_port.in_waiting >= 1:
                 byte = self.serial_port.read(1)
                 if int.from_bytes(byte, 'big') == START_BYTE:
                     # print(byte)
@@ -41,15 +38,16 @@ class SerialNode(Node):
                 else:
                     self.get_logger().info("Start Byte Not Matched")
 
-            else:
+        else:
+            if self.serial_port.in_waiting >= 25:
                 self.is_waiting_for_start_byte = True
-                data_str = self.serial_port.read(37)
+                data_str = self.serial_port.read(25)
                 hash = self.calc_crc(data_str[:-1])
                 if hash == data_str[-1]:
                     # data = [x, y, theta, vx, vy, omega]
                     now = time.time()
                     if (now - self.last_sent_time > 0.05):
-                        data = struct.unpack("ffffffiii", data_str[0:36])
+                        data = struct.unpack("ffffff", data_str[0:24])
                         odom_msg = Odometry()
                         odom_msg.header.stamp = self.get_clock().now().to_msg()
                         odom_msg.header.frame_id = 'odom'
@@ -70,9 +68,9 @@ class SerialNode(Node):
                                                     0.0, 0.0, 0.0, 0.0, 0.0, 0.030461]
                         odom_msg.twist.twist.linear.x = data[3]
                         odom_msg.twist.twist.linear.y = data[4]
-                        odom_msg.twist.twist.linear.z = 0.0
-                        odom_msg.twist.twist.angular.x = 0.0
-                        odom_msg.twist.twist.angular.y = 0.0
+                        # odom_msg.twist.twist.linear.z = 0.0
+                        # odom_msg.twist.twist.angular.x = 0.0
+                        # odom_msg.twist.twist.angular.y = 0.0
                         odom_msg.twist.twist.angular.z = data[5]
                         odom_msg.twist.covariance = [0.25, 0.0, 0.0, 0.0, 0.0, 0.0,
                                                      0.0, 0.25, 0.0, 0.0, 0.0, 0.0,
@@ -83,16 +81,11 @@ class SerialNode(Node):
                         self.odom_publisher_.publish(odom_msg)
                         self.odom_seq += 1
 
-                        count_msg = Int32MultiArray()
-                        count_msg.data = [data[6], data[7], data[8]]
-                        self.enc_count_publisher_.publish(count_msg)
-
                         self.last_sent_time = now
 
-                        self.get_logger().info('"x:%f y:%f yaw:%f vx:%f vy:%f vyaw:%f %i %i %i"'
+                        self.get_logger().info('"x:%f y:%f yaw:%f vx:%f vy:%f vyaw:%f"'
                                             %(data[0]*100, data[1]*100, data[2]*180/pi, 
-                                              data[3]*100, data[4]*100, data[5]*180/pi,
-                                              data[6], data[7], data[8]))
+                                              data[3]*100, data[4]*100, data[5]*180/pi))
                 else:
                     self.get_logger().info('Hash error')
 

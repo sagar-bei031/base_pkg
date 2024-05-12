@@ -5,10 +5,13 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Int32MultiArray
 from geometry_msgs.msg import Twist
 
+Filtered = '/odometry/filtered'
+Raw = '/freewheel/odometry'
+
 class OdomSubNode(Node):
     def __init__(self):
         super().__init__("odom_subscriber_node")
-        self.imu_subscriber = self.create_subscription(Odometry, '/odometry/filtered', self.process_data, 10)
+        self.imu_subscriber = self.create_subscription(Odometry, Filtered, self.process_data, 10)
         
     def process_data(self, odom_msg):
         x = odom_msg.pose.pose.position.x
