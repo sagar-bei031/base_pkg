@@ -1,6 +1,7 @@
 import rclpy
 from math import sin, cos, atan2, sqrt,  pi
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Int32MultiArray
 from geometry_msgs.msg import Twist
@@ -11,7 +12,13 @@ Raw = '/freewheel/odometry'
 class OdomSubNode(Node):
     def __init__(self):
         super().__init__("odom_subscriber_node")
-        self.imu_subscriber = self.create_subscription(Odometry, Filtered, self.process_data, 10)
+        
+        qos_profile = QoSProfile(depth=10)
+        qos_profile.reliability = ReliabilityPolicy.BEST_EFFORT
+        self.prev_yaw = 0
+        self.yaw_sum = 0
+        
+        self.imu_subscriber = self.create_subscription(Odometry, 'odometry/filtered', self.process_data, qos_profile)
         
     def process_data(self, odom_msg):
         x = odom_msg.pose.pose.position.x
@@ -22,9 +29,11 @@ class OdomSubNode(Node):
                                                       odom_msg.pose.pose.orientation.x,
                                                       odom_msg.pose.pose.orientation.y,
                                                       odom_msg.pose.pose.orientation.z)
-        
+        self.yaw_sum += yaw - self.prev_yaw
+        self.prev_yaw = yaw
 
-        self.get_logger().info('xyz:"%f %f %f" ypr: "%f %f %f"' %(x, y, z, yaw*180/pi, pitch*180/pi, roll*180/pi))
+        #self.get_logger().info('sxyz:"%f %f %f %f" ypr: "%f %f %f"' %(self.prev_yaw * 180/pi, x, y, z, yaw*180/pi, pitch*180/pi, roll*180/pi))
+        self.get_logger().info('sypr: "%f %f %f %f"' %(self.prev_yaw * 180/pi, yaw*180/pi, pitch*180/pi, roll*180/pi))
 
         
 def yawpitchroll_to_quaternion(yaw, pitch, roll):
