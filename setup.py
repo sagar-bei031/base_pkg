@@ -27,6 +27,10 @@ setup(
             'odome_node = base_pkg.odom_node:main',
             'joy_node = base_pkg.joy_node:main',
             'cmd_node = base_pkg.cmd_node:main',
+            'imu_node = base_pkg.imu_node:main',
+            'odom_sub_node = base_pkg.odom_subscriber:main',
+            'imu_sub_node = base_pkg.imu_subscriber:main',
+            'odom_cmd_serial_node = base_pkg.odom_cmd_serial:main',
         ],
     },
 )
