@@ -14,7 +14,7 @@ class CmdSubNode(Node):
         qos_profile = QoSProfile(depth=10)
         qos_profile.reliability = ReliabilityPolicy.BEST_EFFORT
         
-        self.imu_subscriber = self.create_subscription(Twist, '/cmd_vel/linefollow', self.process_data, qos_profile)
+        self.imu_subscriber = self.create_subscription(Twist, '/cmd_vel', self.process_data, qos_profile)
         self.last_rx = 0
 
     def process_data(self, msg):
